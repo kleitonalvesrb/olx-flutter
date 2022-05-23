@@ -27,7 +27,7 @@ class _LoginState extends State<Login> {
   final TextEditingController _controllerSenha =
       TextEditingController(text: "1234567");
   final TextEditingController _controleEmail =
-      TextEditingController(text: "kleiton.a.batista@gmail.com");
+      TextEditingController(text: "thaismarques@gmail.com");
   bool _cadastrar = false;
   String _msgErro = "";
   String _textoBotao = "Entrar";

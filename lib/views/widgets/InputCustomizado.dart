@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:validadores/Validador.dart';
 
 class InputCustomizado extends StatelessWidget {
   final TextEditingController? controller;
@@ -6,6 +8,9 @@ class InputCustomizado extends StatelessWidget {
   final bool? obscure;
   final bool? autofocus;
   final TextInputType? type;
+  final int? maxLines;
+  final List<TextInputFormatter>? inputFormatter;
+  final Function(dynamic)? validator;
 
   const InputCustomizado(
       {Key? key,
@@ -13,22 +18,30 @@ class InputCustomizado extends StatelessWidget {
       @required this.hint,
       this.obscure = false,
       this.autofocus = false,
-      this.type = TextInputType.text})
+      this.maxLines,
+      this.type = TextInputType.text,
+      this.validator,
+      this.inputFormatter})
       : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
+    return TextFormField(
       controller: controller,
       obscureText: obscure!,
       autofocus: autofocus!,
       keyboardType: type,
+      inputFormatters: inputFormatter,
+      maxLines: maxLines,
+      validator: (String? valor) {
+        return validator!(valor);
+      },
       style: const TextStyle(fontSize: 20),
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.fromLTRB(32, 16, 32, 15),
         hintText: hint,
         filled: true,
-        fillColor: Colors.white ,
+        fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
         ),
