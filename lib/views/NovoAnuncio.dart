@@ -1,10 +1,14 @@
 import 'dart:io';
 
 import 'package:brasil_fields/brasil_fields.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:olx/models/Anuncio.dart';
 import 'package:olx/views/widgets/BotaoCustomizado.dart';
 import 'package:olx/views/widgets/InputCustomizado.dart';
 import 'package:validadores/Validador.dart';
@@ -23,6 +27,8 @@ class _NovoAnuncioState extends State<NovoAnuncio> {
   List<DropdownMenuItem<String>> _listaItensDropCategorias = [];
   String? _itemSelecionadoEstado;
   String? _itemSelecionadoCategoria;
+  Anuncio? _anuncio;
+  BuildContext? _dialogContext;
 
   _selecionarImagemGaleria() async {
     final ImagePicker _picker = ImagePicker();
@@ -40,10 +46,70 @@ class _NovoAnuncioState extends State<NovoAnuncio> {
     }
   }
 
+  _salvarAnuncio() async {
+    _abrirDialog(_dialogContext!);
+    await _uploadImagens();
+    FirebaseAuth auth = FirebaseAuth.instance;
+    User usuarioLogado = await auth.currentUser!;
+    String idUsuarioLogado = usuarioLogado.uid;
+    FirebaseFirestore db = FirebaseFirestore.instance;
+    db
+        .collection("meus_anuncios")
+        .doc(idUsuarioLogado)
+        .collection("anuncios")
+        .doc(_anuncio!.id)
+        .set(_anuncio!.toMap())
+        .then((_) {
+          
+      Navigator.pop(_dialogContext!);
+      Navigator.pushReplacementNamed(context, "/meus-anuncios");
+    });
+    // CollectionReference anuncios = db.collection("meus_anuncios");
+    print("lista de images: ${_anuncio!.fotos.toString()}");
+  }
+
+  _abrirDialog(BuildContext context) {
+    showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+              CircularProgressIndicator(),
+              SizedBox(
+                height: 20,
+              ),
+              Text("Salvando anúncio...")
+            ]),
+          );
+        });
+  }
+
+  Future _uploadImagens() async {
+    FirebaseStorage storage = FirebaseStorage.instance;
+    Reference pastaRaiz = storage.ref();
+    for (var imagem in _listaImagens) {
+      String nomeImagem = DateTime.now().microsecondsSinceEpoch.toString();
+      Reference arquivo = pastaRaiz
+          .child("meus_anuncios")
+          .child(_anuncio!.id)
+          .child(nomeImagem);
+
+      UploadTask uploadTask = arquivo.putFile(imagem);
+      TaskSnapshot taskSnapshot =
+          await uploadTask.whenComplete(() => print("salvou"));
+      String url = await taskSnapshot.ref.getDownloadURL();
+      _anuncio!.fotos.add(url);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _carregaritensDropDown();
+    _anuncio = Anuncio();
   }
 
   _carregaritensDropDown() {
@@ -209,6 +275,9 @@ class _NovoAnuncioState extends State<NovoAnuncio> {
                         child: DropdownButtonFormField(
                           value: _itemSelecionadoEstado,
                           hint: const Text("Estados"),
+                          onSaved: (estado) {
+                            _anuncio!.estado = estado;
+                          },
                           style: const TextStyle(
                               color: Colors.black, fontSize: 20),
                           items: _listaItensDropEstados,
@@ -233,6 +302,9 @@ class _NovoAnuncioState extends State<NovoAnuncio> {
                         child: DropdownButtonFormField(
                           value: _itemSelecionadoCategoria,
                           hint: const Text("Categoria"),
+                          onSaved: (categoria) {
+                            _anuncio!.categoria = categoria;
+                          },
                           style: const TextStyle(
                               color: Colors.black, fontSize: 20),
                           items: _listaItensDropCategorias,
@@ -257,8 +329,10 @@ class _NovoAnuncioState extends State<NovoAnuncio> {
                   child: InputCustomizado(
                     obscure: false,
                     autofocus: false,
-
                     hint: "Título",
+                    onSaved: (titulo) {
+                      _anuncio!.titulo = titulo;
+                    },
                     validator: (valor) {
                       return Validador()
                           .add(Validar.OBRIGATORIO, msg: "Campo Obrigatório")
@@ -273,9 +347,14 @@ class _NovoAnuncioState extends State<NovoAnuncio> {
                     autofocus: false,
                     type: TextInputType.number,
                     hint: "Preço",
+                    onSaved: (preco) {
+                      _anuncio!.preco = preco;
+                    },
                     inputFormatter: [
                       FilteringTextInputFormatter.digitsOnly,
-                      CentavosInputFormatter(moeda: true,)
+                      CentavosInputFormatter(
+                        moeda: true,
+                      )
                     ],
                     validator: (valor) {
                       return Validador()
@@ -284,13 +363,16 @@ class _NovoAnuncioState extends State<NovoAnuncio> {
                     },
                   ),
                 ),
-                 Padding(
+                Padding(
                   padding: const EdgeInsets.only(bottom: 15),
                   child: InputCustomizado(
                     obscure: false,
                     autofocus: false,
                     type: TextInputType.phone,
                     hint: "Telefone",
+                    onSaved: (telefone) {
+                      _anuncio!.telefone = telefone;
+                    },
                     inputFormatter: [
                       FilteringTextInputFormatter.digitsOnly,
                       TelefoneInputFormatter()
@@ -309,6 +391,9 @@ class _NovoAnuncioState extends State<NovoAnuncio> {
                     autofocus: false,
                     // type: TextInputType.phone,
                     hint: "Descrição (200 caracteres)",
+                    onSaved: (descricao) {
+                      _anuncio!.descricao = descricao;
+                    },
                     maxLines: null,
                     // inputFormatter: [
                     //   FilteringTextInputFormatter.digitsOnly,
@@ -325,7 +410,11 @@ class _NovoAnuncioState extends State<NovoAnuncio> {
                 BotaoCustomizado(
                   texto: "Cadastrar anúncio",
                   onPressed: () {
-                    if (_formKey.currentState!.validate()) {}
+                    if (_formKey.currentState!.validate()) {
+                      _formKey.currentState?.save();
+                      _dialogContext = context;
+                      _salvarAnuncio();
+                    }
                   },
                 ),
               ],
